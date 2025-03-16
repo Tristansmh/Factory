@@ -1105,3 +1105,10 @@ input[type="number"]::-webkit-outer-spin-button {
     50% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
     100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
 }
+
+.setting-help {
+    font-size: 0.9rem;
+    color: var(--light-text);
+    margin-top: 0.5rem;
+    opacity: 0.8;
+}

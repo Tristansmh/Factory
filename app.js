@@ -14,7 +14,8 @@ const app = createApp({
             gadget: 0,
             device: 0,
             quantumChip: 0,
-            aiModule: 0
+            aiModule: 0,
+            lastOfflineTime: Date.now()
         });
 
         const displayedResources = computed(() => {
@@ -832,6 +833,9 @@ const app = createApp({
 
         // Save game
         function saveGame() {
+            // Update last offline time before saving
+            resources.lastOfflineTime = Date.now();
+            
             const saveData = {
                 resources,
                 ownedMachines,
@@ -1292,11 +1296,98 @@ const app = createApp({
             }
         }
 
+        // Add new offline progress calculation function
+        function calculateOfflineProgress() {
+            const now = Date.now();
+            const lastTime = resources.lastOfflineTime || now;
+            const elapsedSeconds = Math.max(0, Math.floor((now - lastTime) / 1000));
+            
+            if (elapsedSeconds > 10) { // Only calculate if more than 10 seconds have passed
+                // Calculate what would have been produced during offline time
+                let offlineProduction = {};
+                let offlineMoney = 0;
+                
+                // Analyze machines that would have been running
+                for (const id in ownedMachines) {
+                    const machine = ownedMachines[id];
+                    
+                    if (machine.isRunning) {
+                        // Check if resources were available for input
+                        let canProduce = true;
+                        for (const resource in machine.inputRate) {
+                            const requiredPerSecond = machine.inputRate[resource] * machine.level;
+                            const totalRequired = requiredPerSecond * elapsedSeconds;
+                            if (resources[resource] < totalRequired) {
+                                // Not enough resources for the entire duration
+                                canProduce = false;
+                                break;
+                            }
+                        }
+                        
+                        if (canProduce) {
+                            // Consume input resources
+                            for (const resource in machine.inputRate) {
+                                const amount = machine.inputRate[resource] * machine.level * elapsedSeconds;
+                                resources[resource] -= amount;
+                            }
+                            
+                            // Add output resources
+                            for (const resource in machine.outputRate) {
+                                const amount = machine.outputRate[resource] * machine.level * prestige.multiplier * elapsedSeconds;
+                                offlineProduction[resource] = (offlineProduction[resource] || 0) + amount;
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate passive income
+                if (passiveIncome.active) {
+                    offlineMoney += passiveIncome.amount * prestige.multiplier * elapsedSeconds;
+                }
+                
+                // Apply offline production to resources
+                for (const resource in offlineProduction) {
+                    resources[resource] = (resources[resource] || 0) + offlineProduction[resource];
+                }
+                
+                // Apply offline money
+                resources.money += offlineMoney;
+                stats.moneyEarned += offlineMoney;
+                
+                // Prepare summary message
+                let summaryMessage = `While you were away (${formatTime(elapsedSeconds)}):`;
+                let detailsAvailable = false;
+                
+                for (const resource in offlineProduction) {
+                    if (offlineProduction[resource] > 0) {
+                        summaryMessage += `\n- Produced ${formatNumber(offlineProduction[resource])} ${capitalizeFirst(resource)}`;
+                        detailsAvailable = true;
+                    }
+                }
+                
+                if (offlineMoney > 0) {
+                    summaryMessage += `\n- Earned $${formatNumber(offlineMoney)}`;
+                    detailsAvailable = true;
+                }
+                
+                // Show notification with offline progress
+                if (detailsAvailable) {
+                    showNotification(summaryMessage, 'success');
+                }
+            }
+            
+            // Update the last offline time
+            resources.lastOfflineTime = now;
+        }
+
         // Start game loop when mounted
         onMounted(() => {
             // Try to load saved game
             if (localStorage.getItem('factoryTycoonSave')) {
                 loadGame();
+                
+                // Calculate offline progress
+                calculateOfflineProgress();
             }
 
             // Start game loop
@@ -1330,6 +1421,27 @@ const app = createApp({
             });
 
             observer.observe(document.body, { childList: true, subtree: true });
+            
+            // Add event listeners for saving when user leaves the page
+            window.addEventListener('beforeunload', () => {
+                saveGame();
+            });
+            
+            // Add auto-save every minute
+            setInterval(() => {
+                if (settings.autoSave) {
+                    saveGame();
+                }
+            }, 60000);
+            
+            // Add visibility change event to calculate offline progress when user returns
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    calculateOfflineProgress();
+                } else {
+                    saveGame();
+                }
+            });
         });
 
         return {
@@ -1379,7 +1491,8 @@ const app = createApp({
             setupMachineAnimations,
             getResourceIcon,
             getResourceColor,
-            performPrestige
+            performPrestige,
+            calculateOfflineProgress
         };
     }
 }).mount('#app');
