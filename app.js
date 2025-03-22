@@ -21,7 +21,7 @@ const app = createApp({
         const displayedResources = computed(() => {
             const result = {};
             for (const [key, value] of Object.entries(resources)) {
-                if (key !== 'money' && value > 0) {
+                if (key !== 'money' && key !== 'lastOfflineTime' && value > 0) {
                     result[key] = value;
                 }
             }
@@ -451,12 +451,21 @@ const app = createApp({
 
         // Show notification function
         function showNotification(message, type = 'info') {
-            activeNotifications.value.push({ message, type });
+            const notification = { message, type };
+            activeNotifications.value.push(notification);
 
             // Limit notifications to 5 at a time
             if (activeNotifications.value.length > 5) {
                 activeNotifications.value.shift();
             }
+            
+            // Auto-remove notification after 5 seconds
+            setTimeout(() => {
+                const index = activeNotifications.value.indexOf(notification);
+                if (index !== -1) {
+                    activeNotifications.value.splice(index, 1);
+                }
+            }, 5000);
         }
 
         // Remove notification
@@ -833,8 +842,8 @@ const app = createApp({
 
         // Save game
         function saveGame() {
-            // Update last offline time before saving
-            resources.lastOfflineTime = Date.now();
+            // Store last time for offline calculation
+            localStorage.setItem('factoryTycoonLastTime', Date.now().toString());
             
             const saveData = {
                 resources,
@@ -1299,7 +1308,7 @@ const app = createApp({
         // Add new offline progress calculation function
         function calculateOfflineProgress() {
             const now = Date.now();
-            const lastTime = resources.lastOfflineTime || now;
+            const lastTime = localStorage.getItem('factoryTycoonLastTime') ? parseInt(localStorage.getItem('factoryTycoonLastTime')) : now;
             const elapsedSeconds = Math.max(0, Math.floor((now - lastTime) / 1000));
             
             if (elapsedSeconds > 10) { // Only calculate if more than 10 seconds have passed
@@ -1376,8 +1385,8 @@ const app = createApp({
                 }
             }
             
-            // Update the last offline time
-            resources.lastOfflineTime = now;
+            // Update the last time
+            localStorage.setItem('factoryTycoonLastTime', now.toString());
         }
 
         // Start game loop when mounted
@@ -1439,6 +1448,8 @@ const app = createApp({
                 if (document.visibilityState === 'visible') {
                     calculateOfflineProgress();
                 } else {
+                    // Save current time when user leaves
+                    localStorage.setItem('factoryTycoonLastTime', Date.now().toString());
                     saveGame();
                 }
             });

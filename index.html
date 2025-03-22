@@ -325,7 +325,7 @@
         <div class="notifications">
             <div v-for="(notification, index) in activeNotifications" :key="index" 
                 class="notification" :class="notification.type"
-                @animationend="removeNotification(index)">
+                @click="removeNotification(index)">
                 <span class="notification-message">{{ notification.message }}</span>
             </div>
         </div>

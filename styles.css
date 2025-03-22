@@ -552,19 +552,36 @@ button.danger-button {
 }
 
 .notification {
-    background: rgba(30, 41, 59, 0.95);
+    background: rgba(30, 41, 59, 0.8);
     color: var(--text-color);
     padding: 1rem 1.5rem;
     margin-top: 0.5rem;
     border-radius: 12px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    animation: slideAndBounce 0.5s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
+    animation: slideAndBounce 0.5s ease-out;
     border-left: 4px solid var(--primary-color);
     backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     transform-style: preserve-3d;
     transition: var(--theme-transition);
+    cursor: pointer;
+}
+
+.notification.success {
+    border-left-color: var(--success-color);
+}
+
+.notification.error {
+    border-left-color: var(--danger-color);
+}
+
+.notification.warning {
+    border-left-color: var(--warning-color);
+}
+
+.notification.info {
+    border-left-color: var(--info-color);
 }
 
 @keyframes slideAndBounce {
